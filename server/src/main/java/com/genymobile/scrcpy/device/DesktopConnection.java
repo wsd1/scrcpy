@@ -8,10 +8,20 @@ import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+
+
 import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+
+
+import java.lang.reflect.Field;
+
 
 public final class DesktopConnection implements Closeable {
 
@@ -19,24 +29,67 @@ public final class DesktopConnection implements Closeable {
 
     private static final String SOCKET_NAME_PREFIX = "scrcpy";
 
-    private final LocalSocket videoSocket;
+    private final Socket videoSocket;
     private final FileDescriptor videoFd;
 
-    private final LocalSocket audioSocket;
+    private final Socket audioSocket;
     private final FileDescriptor audioFd;
 
-    private final LocalSocket controlSocket;
+    private final Socket controlSocket;
     private final ControlChannel controlChannel;
 
-    private DesktopConnection(LocalSocket videoSocket, LocalSocket audioSocket, LocalSocket controlSocket) throws IOException {
+    private DesktopConnection(Socket videoSocket, Socket audioSocket, Socket controlSocket) throws IOException {
         this.videoSocket = videoSocket;
         this.audioSocket = audioSocket;
         this.controlSocket = controlSocket;
 
-        videoFd = videoSocket != null ? videoSocket.getFileDescriptor() : null;
-        audioFd = audioSocket != null ? audioSocket.getFileDescriptor() : null;
-        controlChannel = controlSocket != null ? new ControlChannel(controlSocket) : null;
+
+
+        try {
+            this.videoFd = videoSocket != null ? getFileDescriptor(videoSocket) : null;
+            this.audioFd = audioSocket != null ? getFileDescriptor(audioSocket) : null;
+            this.controlChannel = controlSocket != null ? new ControlChannel(controlSocket) : null;
+        } catch (Exception e) {
+            // 将异常转换为 IOException
+            throw new IOException("DesktopConnection:Failed to get socket file descriptor", e);
+        }
+
+
     }
+
+    private static FileDescriptor getFileDescriptor(Socket socket) throws IOException {
+        try {
+            // 尝试获取 Socket 的 impl 字段
+            Field implField = Socket.class.getDeclaredField("impl");
+            implField.setAccessible(true);
+            Object impl = implField.get(socket);
+            
+            // 尝试从实现类中获取文件描述符
+            Class<?> clazz = impl.getClass();
+            
+            // 尝试可能的字段名 - Android 可能使用不同的字段名
+            String[] possibleFieldNames = {"fd", "fileDescriptor", "fis", "socket"};
+            
+            for (String fieldName : possibleFieldNames) {
+                try {
+                    Field fdField = clazz.getDeclaredField(fieldName);
+                    fdField.setAccessible(true);
+                    Object result = fdField.get(impl);
+                    if (result instanceof FileDescriptor) {
+                        return (FileDescriptor) result;
+                    }
+                } catch (NoSuchFieldException e) {
+                    // 尝试下一个可能的字段名
+                    continue;
+                }
+            }
+            
+            throw new IOException("Could not find file descriptor field in socket implementation");
+        } catch (Exception e) {
+            throw new IOException("Failed to get socket file descriptor", e);
+        }
+    }
+
 
     private static LocalSocket connect(String abstractName) throws IOException {
         LocalSocket localSocket = new LocalSocket();
@@ -57,30 +110,36 @@ public final class DesktopConnection implements Closeable {
             throws IOException {
         String socketName = getSocketName(scid);
 
-        LocalSocket videoSocket = null;
-        LocalSocket audioSocket = null;
-        LocalSocket controlSocket = null;
+        Socket videoSocket = null;
+        Socket audioSocket = null;
+        Socket controlSocket = null;
         try {
             if (tunnelForward) {
-                try (LocalServerSocket localServerSocket = new LocalServerSocket(socketName)) {
+                try (ServerSocket serverSocket = new ServerSocket(12340, 50, InetAddress.getByName("0.0.0.0"))) {
                     if (video) {
-                        videoSocket = localServerSocket.accept();
+                        videoSocket = serverSocket.accept();
                         if (sendDummyByte) {
                             // send one byte so the client may read() to detect a connection error
                             videoSocket.getOutputStream().write(0);
                             sendDummyByte = false;
                         }
                     }
+                }
+
+                try (ServerSocket serverSocket = new ServerSocket(12342, 50, InetAddress.getByName("0.0.0.0"))) {
                     if (audio) {
-                        audioSocket = localServerSocket.accept();
+                        audioSocket = serverSocket.accept();
                         if (sendDummyByte) {
                             // send one byte so the client may read() to detect a connection error
                             audioSocket.getOutputStream().write(0);
                             sendDummyByte = false;
                         }
                     }
+                }
+
+                try (ServerSocket serverSocket = new ServerSocket(12344, 50, InetAddress.getByName("0.0.0.0"))) {
                     if (control) {
-                        controlSocket = localServerSocket.accept();
+                        controlSocket = serverSocket.accept();
                         if (sendDummyByte) {
                             // send one byte so the client may read() to detect a connection error
                             controlSocket.getOutputStream().write(0);
@@ -88,7 +147,10 @@ public final class DesktopConnection implements Closeable {
                         }
                     }
                 }
-            } else {
+            }
+            /*
+            
+             else {
                 if (video) {
                     videoSocket = connect(socketName);
                 }
@@ -99,6 +161,7 @@ public final class DesktopConnection implements Closeable {
                     controlSocket = connect(socketName);
                 }
             }
+            */
         } catch (IOException | RuntimeException e) {
             if (videoSocket != null) {
                 videoSocket.close();
@@ -115,7 +178,7 @@ public final class DesktopConnection implements Closeable {
         return new DesktopConnection(videoSocket, audioSocket, controlSocket);
     }
 
-    private LocalSocket getFirstSocket() {
+    private Socket getFirstSocket() {
         if (videoSocket != null) {
             return videoSocket;
         }
@@ -160,8 +223,17 @@ public final class DesktopConnection implements Closeable {
         System.arraycopy(deviceNameBytes, 0, buffer, 0, len);
         // byte[] are always 0-initialized in java, no need to set '\0' explicitly
 
-        FileDescriptor fd = getFirstSocket().getFileDescriptor();
-        IO.writeFully(fd, buffer, 0, buffer.length);
+
+        try {
+            FileDescriptor fd = getFileDescriptor(getFirstSocket());
+            IO.writeFully(fd, buffer, 0, buffer.length);
+        } catch (Exception e) {
+            // 将异常转换为 IOException
+            throw new IOException("sendDeviceMeta:Failed to get socket file descriptor", e);
+        }
+
+
+
     }
 
     public FileDescriptor getVideoFd() {
