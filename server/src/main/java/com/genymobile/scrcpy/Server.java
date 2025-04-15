@@ -103,12 +103,14 @@ public final class Server {
         boolean video = options.getVideo();
         boolean audio = options.getAudio();
         boolean sendDummyByte = options.getSendDummyByte();
+        String xip = options.getXIP();
+        int xport = options.getXPort();
 
         Workarounds.apply();
 
         List<AsyncProcessor> asyncProcessors = new ArrayList<>();
 
-        DesktopConnection connection = DesktopConnection.open(scid, tunnelForward, video, audio, control, sendDummyByte);
+        DesktopConnection connection = DesktopConnection.open(xip, xport, scid, tunnelForward, video, audio, control, sendDummyByte);
         try {
             if (options.getSendDeviceMeta()) {
                 connection.sendDeviceMeta(Device.getDeviceName());
@@ -143,8 +145,12 @@ public final class Server {
             }
 
             if (video) {
+                //建立一个stream
                 Streamer videoStreamer = new Streamer(connection.getVideoFd(), options.getVideoCodec(), options.getSendCodecMeta(),
                         options.getSendFrameMeta());
+
+
+                //建一个视频源
                 SurfaceCapture surfaceCapture;
                 if (options.getVideoSource() == VideoSource.DISPLAY) {
                     NewDisplay newDisplay = options.getNewDisplay();
@@ -157,6 +163,9 @@ public final class Server {
                 } else {
                     surfaceCapture = new CameraCapture(options);
                 }
+
+
+                //建主流程 编码器
                 SurfaceEncoder surfaceEncoder = new SurfaceEncoder(surfaceCapture, videoStreamer, options);
                 asyncProcessors.add(surfaceEncoder);
 
@@ -167,6 +176,8 @@ public final class Server {
 
             Completion completion = new Completion(asyncProcessors.size());
             for (AsyncProcessor asyncProcessor : asyncProcessors) {
+
+                //正式启动 surfaceEncoder 的进程
                 asyncProcessor.start((fatalError) -> {
                     completion.addCompleted(fatalError);
                 });
@@ -184,6 +195,8 @@ public final class Server {
             OpenGLRunner.quit(); // quit the OpenGL thread, if any
 
             connection.shutdown();
+
+            Ln.i("==== Connection shutdown ====");
 
             try {
                 if (cleanUp != null) {

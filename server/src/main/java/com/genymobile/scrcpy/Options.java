@@ -80,6 +80,17 @@ public class Options {
     private boolean sendDummyByte = true; // write a byte on start to detect connection issues
     private boolean sendCodecMeta = true; // write the codec metadata before the stream
 
+    private String xIP;
+    private int xPort = 12340;
+
+    public String getXIP() {
+        return xIP;
+    }
+
+    public int getXPort() {
+        return xPort;
+    }
+
     public Ln.Level getLogLevel() {
         return logLevel;
     }
@@ -311,6 +322,16 @@ public class Options {
             String key = arg.substring(0, equalIndex);
             String value = arg.substring(equalIndex + 1);
             switch (key) {
+
+                case "x-ip":
+                    if (!value.isEmpty()) {
+                        options.xIP = value;
+                    }
+                    break;
+                case "x-port":
+                    options.xPort = Integer.parseInt(value);
+                    break;
+
                 case "scid":
                     int scid = Integer.parseInt(value, 0x10);
                     if (scid < -1) {

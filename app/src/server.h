@@ -71,6 +71,9 @@ struct sc_server_params {
     bool vd_destroy_content;
     bool vd_system_decorations;
     uint8_t list;
+
+    const char *x_ip;
+    uint16_t x_port;
 };
 
 struct sc_server {

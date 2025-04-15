@@ -114,6 +114,8 @@ enum {
     OPT_NO_VD_SYSTEM_DECORATIONS,
     OPT_NO_VD_DESTROY_CONTENT,
     OPT_DISPLAY_IME_POLICY,
+    OPT_X_IP,
+    OPT_X_PORT
 };
 
 struct sc_option {
@@ -150,6 +152,19 @@ struct sc_getopt_adapter {
 };
 
 static const struct sc_option options[] = {
+    {
+        .longopt_id = OPT_X_IP,
+        .longopt = "x-ip",
+        .argdesc = "ip",
+        .text = "Remote ip consumes video stream.",
+    },
+    {
+        .longopt_id = OPT_X_PORT,
+        .longopt = "x-port",
+        .argdesc = "port",
+        .text = "Remote port consumes video stream.",
+    },
+
     {
         .longopt_id = OPT_ALWAYS_ON_TOP,
         .longopt = "always-on-top",
@@ -2363,6 +2378,17 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
     int c;
     while ((c = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) {
         switch (c) {
+
+            case OPT_X_IP:
+                opts->x_ip = optarg;
+                break;
+
+            case OPT_X_PORT:
+                if (!parse_port(optarg, &opts->x_port)) {
+                    return false;
+                }
+                break;
+
             case OPT_BIT_RATE:
                 LOGE("--bit-rate has been removed, "
                      "use --video-bit-rate or --audio-bit-rate.");

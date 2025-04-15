@@ -463,6 +463,10 @@ scrcpy(struct scrcpy_options *options) {
         .vd_destroy_content = options->vd_destroy_content,
         .vd_system_decorations = options->vd_system_decorations,
         .list = options->list,
+
+        .x_ip = options->x_ip,
+        .x_port = options->x_port
+
     };
 
     static const struct sc_server_callbacks cbs = {

@@ -62,6 +62,7 @@ public class SurfaceEncoder implements AsyncProcessor {
         this.downsizeOnError = options.getDownsizeOnError();
     }
 
+//编码进程最重要的主流程
     private void streamCapture() throws IOException, ConfigurationException {
         Codec codec = streamer.getCodec();
         MediaCodec mediaCodec = createMediaCodec(codec, encoderName);
@@ -115,6 +116,7 @@ public class SurfaceEncoder implements AsyncProcessor {
                 } catch (IllegalStateException | IllegalArgumentException | IOException e) {
                     if (IO.isBrokenPipe(e)) {
                         // Do not retry on broken pipe, which is expected on close because the socket is closed by the client
+                        Ln.i("Capture/encoding PIPE breaks.");
                         throw e;
                     }
                     Ln.e("Capture/encoding error: " + e.getClass().getName() + ": " + e.getMessage());

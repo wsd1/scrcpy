@@ -265,6 +265,15 @@ execute_server(struct sc_server *server,
     ADD_PARAM("scid=%08x", params->scid);
     ADD_PARAM("log_level=%s", log_level_to_server_string(params->log_level));
 
+    if (params->x_ip) {
+        VALIDATE_STRING(params->x_ip);
+        ADD_PARAM("x-ip=%s", params->x_ip);
+    }
+    if (params->x_port) {
+        ADD_PARAM("x-port=%" PRIu16, params->x_port);
+    }
+
+
     if (!params->video) {
         ADD_PARAM("video=false");
     }

@@ -2,33 +2,52 @@
 
 安卓设备端运行的是 server，其代码入口在“server.java”。
 
-编译server，参考 <https://github.com/Genymobile/scrcpy/blob/master/doc/build.md>
 
+
+编译运行scrcpy（包括server）：
 
 ```
 # Linux
 export ANDROID_SDK_ROOT=~/Android/Sdk
 
+
 meson setup x --buildtype=release --strip -Db_lto=true
+
+# 或调试server模式编译：
+
+meson setup x -Dserver_debugger=true
+# or, if x is already configured
+meson configure x -Dserver_debugger=true
+
+
+
+# 编译
 ninja -Cx  # DO NOT RUN AS ROOT
 
-# 或者到 release路径下 
-
-./build_server.sh
-
-# 编译结果在： /release/work/build-server/server/scrcpy-server
+# 运行 编译结果在x路径中
+./run x  --no-window --log_level=verbose --x-ip=192.168.1.188 --x-port=12340
 
 ```
 
+参考 <https://github.com/Genymobile/scrcpy/blob/master/doc/build.md>
 
 
 
-运行测试：
+
+
+
+
+
+仅仅测试server：
 
 ```
-adb push scrcpy-server /data/local/tmp/scrcpy-server.jar
+# 插上手机 其屏幕会提示 调试状态
+
+adb devices #确保设备在线
+
+adb push ./x/server/scrcpy-server /data/local/tmp/scrcpy-server.jar
 adb forward tcp:27183 localabstract:scrcpy
-adb shell CLASSPATH=/data/local/tmp/scrcpy-server.jar app_process / com.genymobile.scrcpy.Server 2.1
+adb shell CLASSPATH=/data/local/tmp/scrcpy-server.jar app_process / com.genymobile.scrcpy.Server 3.2 tunnel_forward=true audio=false control=false cleanup=false raw_stream=true max_size=1920 x-ip=192.168.1.188 x-port=12340
 
 ```
 
